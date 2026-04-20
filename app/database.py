@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import AsyncGenerator
 
-from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, Index
+from sqlalchemy import String, Integer, Text, DateTime, Index
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -41,7 +41,7 @@ class CardAbility(Base):
     __tablename__ = "card_abilities"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), nullable=False, unique=True, index=True)
+    card_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True, index=True)
     card_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     keywords: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of extracted keywords
     ability_summary: Mapped[str | None] = mapped_column(Text, nullable=True)  # LLM-generated summary
@@ -58,7 +58,7 @@ class CardPrice(Base):
     __tablename__ = "card_prices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), nullable=False, index=True)
+    card_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     card_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     edition_slug: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False, index=True)  # 'mylshop', 'tcgplayer', 'cardmarket', etc
@@ -116,10 +116,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     """Initialize database tables for advisor-specific models."""
     logger.info("Creating advisor tables if they don't exist...")
-    # Models are defined in this file, already registered with Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Advisor tables created")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Advisor tables created")
+    except Exception as e:
+        logger.warning("Failed to create advisor tables (non-fatal): %s", e)
+        # Non-fatal: app can still serve healthcheck and respond gracefully
 
 
 async def close_db():
