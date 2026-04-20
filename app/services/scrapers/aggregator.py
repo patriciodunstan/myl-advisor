@@ -1,10 +1,9 @@
 """Price aggregator that searches all stores in parallel."""
 import logging
 import asyncio
-from typing import List, Optional
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from datetime import timedelta
 
 from .base import BaseScraper, ScrapeResult
 from .cartasmitos import CartasMitosScraper

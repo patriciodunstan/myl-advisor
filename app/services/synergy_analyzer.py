@@ -1,6 +1,6 @@
 """Synergy Analyzer Service - Find cards that work well together."""
 import logging
-from typing import List, Optional, Set, Dict, Tuple
+from typing import List, Optional, Set, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

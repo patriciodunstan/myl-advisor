@@ -2,7 +2,7 @@
 import logging
 import hashlib
 import json
-from typing import Optional, Dict, Any
+from typing import Optional
 from datetime import datetime, timedelta
 
 from openai import AsyncOpenAI

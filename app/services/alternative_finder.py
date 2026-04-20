@@ -1,6 +1,6 @@
 """Alternative Finder Service - Find cheaper alternatives based on keywords."""
 import logging
-from typing import List, Optional, Set
+from typing import Optional, Set
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

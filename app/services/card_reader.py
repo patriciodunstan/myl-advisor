@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.shared_models import Card, Edition, Race, Type, Rarity, Banlist
+from app.shared_models import Card, Race, Banlist
 
 
 logger = logging.getLogger(__name__)

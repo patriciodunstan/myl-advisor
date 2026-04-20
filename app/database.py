@@ -1,7 +1,7 @@
 """Database connection and new models for MyL Advisor using SQLAlchemy 2.0 async."""
 import logging
-from datetime import datetime, timedelta
-from typing import Optional, AsyncGenerator
+from datetime import datetime
+from typing import AsyncGenerator
 
 from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, Index
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

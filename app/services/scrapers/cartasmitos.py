@@ -1,6 +1,6 @@
 """Scraper for cartasmitos.cl (WooCommerce store)."""
 import logging
-from typing import List, Optional
+from typing import List
 from bs4 import BeautifulSoup
 
 from .base import BaseScraper, ScrapeResult

@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import List, Optional
 
 import httpx
-from bs4 import BeautifulSoup
 from tenacity import (
     retry,
     stop_after_attempt,

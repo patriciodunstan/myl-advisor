@@ -1,6 +1,6 @@
 """Hidden Gems Finder Service - Find underrated cards with high keyword density but low rarity."""
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
