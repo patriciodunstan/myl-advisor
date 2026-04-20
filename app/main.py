@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import init_db
+from app.database import init_db, close_db
 from app.routers import health, alternatives, prices, synergies, hidden_gems
 
 settings = get_settings()
@@ -22,15 +22,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
-    # Startup
     logger.info("Starting MyL Advisor...")
-    await init_db()
-    logger.info("Database initialized")
+    try:
+        await init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.warning("Database initialization failed (non-fatal): %s", e)
 
     yield
 
-    # Shutdown
     logger.info("Shutting down MyL Advisor...")
+    await close_db()
 
 
 def create_app() -> FastAPI:
