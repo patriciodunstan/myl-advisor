@@ -110,6 +110,33 @@ async def check_banlist(
         return None
 
 
+async def search_cards_by_name(
+    session: AsyncSession,
+    query: str,
+    limit: int = 10,
+) -> List[dict]:
+    """Search cards by name (case-insensitive partial match)."""
+    logger.info("search_cards_by_name | query=%r limit=%d", query, limit)
+
+    stmt = (
+        select(Card)
+        .options(
+            selectinload(Card.edition),
+            selectinload(Card.race),
+            selectinload(Card.type),
+            selectinload(Card.rarity),
+        )
+        .where(Card.name.ilike(f"%{query}%"))
+        .order_by(Card.name)
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    cards = result.scalars().all()
+    results = [_card_to_dict(c) for c in cards]
+    logger.info("search_cards_by_name | query=%r → %d results", query, len(results))
+    return results
+
+
 async def get_races(session: AsyncSession) -> List[dict]:
     """Get all races."""
     logger.info("get_races")
