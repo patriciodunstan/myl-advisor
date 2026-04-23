@@ -9,6 +9,7 @@ from .base import BaseScraper, ScrapeResult
 from .cartasmitos import CartasMitosScraper
 from .huntercard import HunterCardScraper
 from .lacuevatcg import LaCuevaScraper
+from .mesaredonda import MesaRedondaScraper
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def get_scrapers() -> List[BaseScraper]:
             CartasMitosScraper(),
             HunterCardScraper(),
             LaCuevaScraper(),
+            MesaRedondaScraper(),
         ]
     return SCRAPERS
 
