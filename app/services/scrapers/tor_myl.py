@@ -162,7 +162,7 @@ async def scrape_meta_decks(
                         deck["resolved_cards"] = resolved
                         logger.debug("Resolved %d cards for public deck %s", len(resolved), deck["slug"])
 
-            results.extend(decks)
+            results.extend(d for d in decks if d["is_public"])
             logger.info("Page %d/%d — %d total decks", page_num, total_pages, len(results))
 
             if page_num >= total_pages:
