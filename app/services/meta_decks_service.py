@@ -98,14 +98,29 @@ async def scrape_and_save(
             continue
 
         try:
+            resolved_cards: list[dict] | None = raw.get("resolved_cards")
             card_counts: dict[int, int] = raw.get("card_counts", {})
-            card_ids = list(card_counts.keys())
 
-            # Resolve card IDs → names and race info from our DB
-            card_data = await _resolve_card_ids(session, card_ids)
-
-            # Infer race from cards
-            race_slug, race_name = _infer_race(card_data, card_counts)
+            if resolved_cards:
+                # Public deck: card names already resolved by scraper
+                card_entries = resolved_cards
+                total_cards = sum(c["quantity"] for c in card_entries)
+                # Build fake card_data for race inference using DB (best effort)
+                card_ids = list(card_counts.keys())
+                card_data = await _resolve_card_ids(session, card_ids)
+                race_slug, race_name = _infer_race(card_data, card_counts)
+            else:
+                # Private deck: resolve via DB
+                card_ids = list(card_counts.keys())
+                card_data = await _resolve_card_ids(session, card_ids)
+                race_slug, race_name = _infer_race(card_data, card_counts)
+                card_entries = []
+                for card_id, quantity in card_counts.items():
+                    card_info = card_data.get(card_id)
+                    if card_info:
+                        card_entries.append({"card_name": card_info["name"], "quantity": quantity})
+                    # Skip cards not in our DB (avoid [Card #XXXXX] placeholders)
+                total_cards = sum(c["quantity"] for c in card_entries) if card_entries else sum(card_counts.values())
 
             deck = MetaDeck(
                 tor_id=slug,
@@ -113,23 +128,20 @@ async def scrape_and_save(
                 author=raw.get("author"),
                 race=race_name,
                 race_slug=race_slug,
-                format=None,  # API doesn't expose format
+                format=None,
                 tournament_name=None,
                 tournament_position=None,
-                card_count=sum(card_counts.values()),
+                card_count=total_cards,
                 scraped_at=datetime.utcnow(),
             )
             session.add(deck)
             await session.flush()
 
-            # Save card entries using resolved names
-            for card_id, quantity in card_counts.items():
-                card_info = card_data.get(card_id)
-                card_name = card_info["name"] if card_info else f"[Card #{card_id}]"
+            for entry in card_entries:
                 session.add(MetaDeckCard(
                     meta_deck_id=deck.id,
-                    card_name=card_name,
-                    quantity=quantity,
+                    card_name=entry["card_name"],
+                    quantity=entry["quantity"],
                 ))
 
             decks_saved += 1

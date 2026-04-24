@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.myl.cl"
 DECKS_ENDPOINT = f"{API_BASE}/cards/decks"
+DECK_DETAIL_ENDPOINT = f"{API_BASE}/cards/deck"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -31,7 +32,7 @@ def _parse_card_ids(cards_str: Optional[str]) -> list[int]:
 
 
 def _parse_deck(raw: dict) -> Optional[dict]:
-    """Parse a single deck entry from the API response."""
+    """Parse a single deck entry from the listing API."""
     try:
         slug = raw.get("slug", "").strip()
         if not slug:
@@ -44,7 +45,6 @@ def _parse_deck(raw: dict) -> Optional[dict]:
         author = nickname or f"{name} {lastname}".strip() or None
 
         card_ids = _parse_card_ids(raw.get("cards"))
-        # Count duplicates for quantity
         card_counts: dict[int, int] = {}
         for cid in card_ids:
             card_counts[cid] = card_counts.get(cid, 0) + 1
@@ -52,17 +52,52 @@ def _parse_deck(raw: dict) -> Optional[dict]:
         return {
             "slug": slug,
             "title": raw.get("title") or f"Mazo {slug}",
-            "description": raw.get("description") or "",
             "author": author,
-            "owner_id": owner.get("id"),
-            "owner_ranking": owner.get("ranking"),
-            "views": int(raw.get("views") or 0),
             "is_public": bool(raw.get("is_public")),
-            "card_counts": card_counts,  # {card_id: quantity}
-            "card_ids": list(card_counts.keys()),  # unique IDs
+            "card_counts": card_counts,
+            "resolved_cards": None,  # populated by fetch_deck_detail if public
         }
     except Exception as e:
         logger.debug("Error parsing deck: %s", e)
+        return None
+
+
+async def fetch_deck_detail(
+    client: httpx.AsyncClient,
+    slug: str,
+) -> Optional[list[dict]]:
+    """
+    Fetch resolved card names from /cards/deck/{slug}.
+    Returns list of {card_name, quantity} or None if private/error.
+    """
+    url = f"{DECK_DETAIL_ENDPOINT}/{slug}"
+    try:
+        resp = await client.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if data.get("status") != "OK":
+            return None
+
+        cards_data = data.get("cards") or {}
+        # cards_data can be a dict {card_id: card_obj} or list
+        result = []
+        if isinstance(cards_data, dict):
+            for card_obj in cards_data.values():
+                name = card_obj.get("name")
+                qty = int(card_obj.get("quantity") or card_obj.get("qty") or 1)
+                if name:
+                    result.append({"card_name": name, "quantity": qty})
+        elif isinstance(cards_data, list):
+            for card_obj in cards_data:
+                name = card_obj.get("name")
+                qty = int(card_obj.get("quantity") or card_obj.get("qty") or 1)
+                if name:
+                    result.append({"card_name": name, "quantity": qty})
+
+        return result if result else None
+    except Exception as e:
+        logger.debug("fetch_deck_detail failed for %s: %s", slug, e)
         return None
 
 
@@ -71,11 +106,7 @@ async def fetch_decks_page(
     page: int,
     limit: int = 30,
 ) -> tuple[list[dict], int]:
-    """
-    Fetch one page of decks from api.myl.cl.
-
-    Returns (decks, total_pages).
-    """
+    """Fetch one page of decks from api.myl.cl. Returns (decks, total_pages)."""
     url = f"{DECKS_ENDPOINT}/{limit}/{page}"
     try:
         resp = await client.get(url, headers=HEADERS, timeout=20)
@@ -105,13 +136,13 @@ async def fetch_decks_page(
 async def scrape_meta_decks(
     pages: int = 5,
     start_page: int = 1,
-    delay_seconds: float = 0.3,
+    delay_seconds: float = 0.4,
 ) -> list[dict]:
     """
     Scrape meta decks from api.myl.cl.
 
-    Returns list of raw deck dicts with card_counts ({card_id: quantity}).
-    Card ID → name resolution happens in the service layer using the local DB.
+    For public decks, fetches full card names from /cards/deck/{slug}.
+    For private decks, returns card_counts dict (IDs only, resolved by service via DB).
     """
     results = []
 
@@ -123,11 +154,18 @@ async def scrape_meta_decks(
                 logger.info("No decks on page %d, stopping", page_num)
                 break
 
+            for deck in decks:
+                if deck["is_public"]:
+                    await asyncio.sleep(0.2)
+                    resolved = await fetch_deck_detail(client, deck["slug"])
+                    if resolved:
+                        deck["resolved_cards"] = resolved
+                        logger.debug("Resolved %d cards for public deck %s", len(resolved), deck["slug"])
+
             results.extend(decks)
-            logger.info("Scraped page %d/%d — %d total decks so far", page_num, total_pages, len(results))
+            logger.info("Page %d/%d — %d total decks", page_num, total_pages, len(results))
 
             if page_num >= total_pages:
-                logger.info("Reached last page (%d)", total_pages)
                 break
 
             await asyncio.sleep(delay_seconds)
