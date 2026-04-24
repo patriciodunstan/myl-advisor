@@ -25,22 +25,20 @@ def test_generate_reason():
     """Test reason generation for hidden gems."""
     # High score gem
     reason = _generate_reason(4, "Común", 2, 85)
-    assert "4 keywords" in reason
-    assert "Común" in reason
-    assert "coste 2" in reason
-    assert "extremadamente eficiente" in reason
+    assert "4 habilidades" in reason
+    assert "cuesta 2" in reason
+    assert "muy potente" in reason
 
     # Medium score gem
     reason = _generate_reason(3, "Incomún", 4, 65)
-    assert "3 keywords" in reason
-    assert "Incomún" in reason
-    assert "coste 4" in reason
-    assert "eficiente" in reason
+    assert "3 habilidades" in reason
+    assert "cuesta 4" in reason
+    assert "potente" in reason
 
     # Low score gem
     reason = _generate_reason(2, "Rara", 6, 30)
-    assert "2 keywords" in reason
-    assert "moderadamente eficiente" in reason
+    assert "2 habilidades" in reason
+    assert "util" in reason
 
 
 @pytest.mark.asyncio

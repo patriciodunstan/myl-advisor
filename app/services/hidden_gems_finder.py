@@ -40,10 +40,10 @@ def _generate_reason(
 
     if gem_score >= 60:
         power = "muy potente"
-    elif gem_score >= 30:
+    elif gem_score > 30:
         power = "potente"
     else:
-        power = "útil"
+        power = "util"
 
     rarity_note = ""
     if rarity_name and rarity_name.lower() in ("común", "comun", "incomún", "incomun"):
