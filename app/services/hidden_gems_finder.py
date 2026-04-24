@@ -35,30 +35,21 @@ def _generate_reason(
     cost: int,
     gem_score: int,
 ) -> str:
-    """Generate explanation for why a card is a hidden gem."""
-    parts = []
+    """Generate player-friendly explanation for why a card is a hidden gem."""
+    cost_str = "sin costo" if cost == 0 else f"cuesta {cost} de oro"
 
-    # Keywords part
-    parts.append(f"{keyword_count} keywords")
-
-    # Rarity part
-    if rarity_name:
-        parts.append(f"carta {rarity_name}")
-
-    # Cost part
-    parts.append(f"a coste {cost}")
-
-    # Score part
-    if gem_score >= 80:
-        efficiency_desc = "extremadamente eficiente"
-    elif gem_score >= 60:
-        efficiency_desc = "muy eficiente"
-    elif gem_score >= 40:
-        efficiency_desc = "eficiente"
+    if gem_score >= 60:
+        power = "muy potente"
+    elif gem_score >= 30:
+        power = "potente"
     else:
-        efficiency_desc = "moderadamente eficiente"
+        power = "útil"
 
-    return f"{', '.join(parts)} — {efficiency_desc}"
+    rarity_note = ""
+    if rarity_name and rarity_name.lower() in ("común", "comun", "incomún", "incomun"):
+        rarity_note = ", fácil de conseguir"
+
+    return f"Tiene {keyword_count} habilidades activas, {cost_str}{rarity_note} — carta {power} que pocos usan"
 
 
 async def find_hidden_gems(
