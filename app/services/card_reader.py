@@ -78,13 +78,24 @@ async def get_cards_by_race_and_cost(
     if exclude_card_name:
         query = query.where(Card.name != exclude_card_name)
 
-    query = query.order_by(Card.cost.asc(), Card.name.asc()).limit(limit)
+    # Fetch more to allow deduplication across editions
+    query = query.order_by(Card.cost.asc(), Card.name.asc(), Card.id.desc()).limit(limit * 6)
 
     result = await session.execute(query)
     cards = result.scalars().all()
 
-    cards_data = [_card_to_dict(card) for card in cards]
-    logger.info("get_cards_by_race_and_cost → %d cards", len(cards_data))
+    # Deduplicate by name, keeping first occurrence (lowest cost, alphabetical)
+    seen: set = set()
+    deduped = []
+    for card in cards:
+        if card.name not in seen:
+            seen.add(card.name)
+            deduped.append(card)
+        if len(deduped) >= limit:
+            break
+
+    cards_data = [_card_to_dict(card) for card in deduped]
+    logger.info("get_cards_by_race_and_cost → %d unique cards (from %d total)", len(cards_data), len(cards))
     return cards_data
 
 
@@ -174,6 +185,10 @@ async def get_races(session: AsyncSession) -> List[dict]:
 
 def _card_to_dict(card: Card) -> dict:
     """Convert Card model to dict with joined data."""
+    # Construct image_path from edition_id/edid when DB field is null
+    image_path = card.image_path or (
+        f"{card.edition_id}/{card.edid}.png" if card.edid else None
+    )
     return {
         "id": card.id,
         "edid": card.edid,
@@ -183,7 +198,7 @@ def _card_to_dict(card: Card) -> dict:
         "damage": card.damage,
         "ability": card.ability,
         "keywords": card.keywords,
-        "image_path": card.image_path,
+        "image_path": image_path,
         "edition_id": card.edition_id,
         "edition_title": card.edition.title if card.edition else None,
         "edition_slug": card.edition.slug if card.edition else None,
