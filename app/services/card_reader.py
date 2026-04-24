@@ -1,5 +1,6 @@
 """Card Reader Service - Query shared MyL database for cards."""
 import logging
+import unicodedata
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -12,6 +13,11 @@ from app.shared_models import Card, Race, Banlist
 logger = logging.getLogger(__name__)
 
 
+def _strip_accents(s: str) -> str:
+    """Normalize string: lowercase + remove accent marks. 'dragón' → 'dragon'."""
+    return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
+
+
 async def get_card_by_name(
     session: AsyncSession,
     card_name: str,
@@ -19,6 +25,7 @@ async def get_card_by_name(
     """Get a single card by name with joins."""
     logger.info("get_card_by_name | card_name=%r", card_name)
 
+    normalized = _strip_accents(card_name)
     query = (
         select(Card)
         .options(
@@ -27,7 +34,7 @@ async def get_card_by_name(
             selectinload(Card.type),
             selectinload(Card.rarity),
         )
-        .where(Card.name == card_name)
+        .where(Card.name.ilike(normalized))
         .limit(1)
     )
     result = await session.execute(query)
@@ -118,6 +125,7 @@ async def search_cards_by_name(
     """Search cards by name (case-insensitive partial match)."""
     logger.info("search_cards_by_name | query=%r limit=%d", query, limit)
 
+    normalized = _strip_accents(query)
     stmt = (
         select(Card)
         .options(
@@ -126,7 +134,7 @@ async def search_cards_by_name(
             selectinload(Card.type),
             selectinload(Card.rarity),
         )
-        .where(Card.name.ilike(f"%{query}%"))
+        .where(Card.name.ilike(f"%{normalized}%"))
         .order_by(Card.name)
         .limit(limit)
     )

@@ -92,12 +92,16 @@ class BaseScraper(ABC):
         ...
 
     def _parse_price_clp(self, price_text: str) -> Optional[int]:
-        """Parse price text to integer CLP. Handles '$12.990', '$12990', '12990 CLP'."""
+        """Parse price text to integer CLP. Handles '$12.990', '$12990', '12990 CLP'.
+        WooCommerce sometimes concatenates strikethrough + sale price — takes the last number."""
         if not price_text:
             return None
         import re
-        # Remove currency symbols and whitespace
-        cleaned = re.sub(r'[^\d]', '', price_text)
-        if cleaned:
-            return int(cleaned)
-        return None
+        # Find all price-like numbers (digits with optional dot separators, min 3 digits)
+        matches = re.findall(r'\d[\d.]{2,}', price_text)
+        if matches:
+            # Last match is the actual sale price (del/ins pattern)
+            return int(re.sub(r'[^\d]', '', matches[-1]))
+        # Fallback: any sequence of digits
+        digits = re.sub(r'[^\d]', '', price_text)
+        return int(digits) if digits else None
