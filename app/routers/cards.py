@@ -3,10 +3,12 @@ import logging
 import httpx
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.database import get_db
 from app.services.card_reader import search_cards_by_name, get_races
+from app.shared_models import Card
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +59,31 @@ async def proxy_card_image(path: str):
     except httpx.RequestError as exc:
         logger.error("Image proxy error for %s: %s", path, exc)
         raise HTTPException(status_code=502, detail="Image fetch failed")
+
+
+class CardsByNamesRequest(BaseModel):
+    names: list[str]
+
+
+@router.post("/cards/by-names")
+async def get_cards_by_names(
+    body: CardsByNamesRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return card info (including image_path) for a list of card names."""
+    if not body.names:
+        return {"cards": {}}
+
+    result = await db.execute(
+        select(Card).where(Card.name.in_(body.names))
+    )
+    cards = result.scalars().all()
+
+    cards_map: dict[str, dict] = {}
+    for card in cards:
+        image_path = card.image_path or (
+            f"{card.edition_id}/{card.edid}.png" if card.edid else None
+        )
+        cards_map[card.name] = {"image_path": image_path}
+
+    return {"cards": cards_map}
