@@ -122,10 +122,14 @@ async def search_cards_by_name(
     query: str,
     limit: int = 10,
 ) -> List[dict]:
-    """Search cards by name (case-insensitive partial match)."""
+    """Search cards by name (case-insensitive partial match), deduplicated by name.
+
+    Fetches more rows than requested to allow deduplication across editions.
+    """
     logger.info("search_cards_by_name | query=%r limit=%d", query, limit)
 
     normalized = _strip_accents(query)
+    # Fetch limit*6 to ensure enough unique names after dedup across editions
     stmt = (
         select(Card)
         .options(
@@ -135,13 +139,24 @@ async def search_cards_by_name(
             selectinload(Card.rarity),
         )
         .where(Card.name.ilike(f"%{normalized}%"))
-        .order_by(Card.name)
-        .limit(limit)
+        .order_by(Card.name, Card.id.desc())
+        .limit(limit * 6)
     )
     result = await session.execute(stmt)
     cards = result.scalars().all()
-    results = [_card_to_dict(c) for c in cards]
-    logger.info("search_cards_by_name | query=%r → %d results", query, len(results))
+
+    # Deduplicate: keep one entry per unique name (first seen = lowest id after sort)
+    seen: set = set()
+    deduped = []
+    for card in cards:
+        if card.name not in seen:
+            seen.add(card.name)
+            deduped.append(card)
+        if len(deduped) >= limit:
+            break
+
+    results = [_card_to_dict(c) for c in deduped]
+    logger.info("search_cards_by_name | query=%r → %d unique results (from %d total)", query, len(results), len(cards))
     return results
 
 
