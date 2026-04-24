@@ -3,9 +3,9 @@ import logging
 from datetime import datetime
 from typing import AsyncGenerator
 
-from sqlalchemy import String, Integer, Text, DateTime, Index
+from sqlalchemy import String, Integer, Text, DateTime, Index, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import get_settings
 
@@ -91,6 +91,50 @@ class AnalysisCache(Base):
     __table_args__ = (
         Index("idx_analysis_cache_type", "analysis_type"),
         Index("idx_analysis_cache_expires", "expires_at"),
+    )
+
+
+class MetaDeck(Base):
+    """Meta decks scraped from tor.myl.cl."""
+    __tablename__ = "meta_decks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tor_id: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    author: Mapped[str | None] = mapped_column(String, nullable=True)
+    race: Mapped[str | None] = mapped_column(String, nullable=True)
+    race_slug: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    format: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    tournament_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    tournament_position: Mapped[str | None] = mapped_column(String, nullable=True)
+    card_count: Mapped[int] = mapped_column(Integer, default=0)
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    cards: Mapped[list["MetaDeckCard"]] = relationship(
+        "MetaDeckCard", back_populates="deck", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    __table_args__ = (
+        Index("idx_meta_decks_race_slug", "race_slug"),
+        Index("idx_meta_decks_format", "format"),
+    )
+
+
+class MetaDeckCard(Base):
+    """Cards belonging to a meta deck."""
+    __tablename__ = "meta_deck_cards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    meta_deck_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("meta_decks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    card_name: Mapped[str] = mapped_column(String, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+
+    deck: Mapped["MetaDeck"] = relationship("MetaDeck", back_populates="cards")
+
+    __table_args__ = (
+        Index("idx_meta_deck_cards_deck_id", "meta_deck_id"),
     )
 
 

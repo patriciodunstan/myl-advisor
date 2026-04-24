@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db, close_db
-from app.routers import health, alternatives, prices, synergies, hidden_gems, cards
+from app.routers import health, alternatives, prices, synergies, hidden_gems, cards, meta_decks
 
 settings = get_settings()
 
@@ -63,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(synergies.router)
     app.include_router(hidden_gems.router)
     app.include_router(cards.router)
+    app.include_router(meta_decks.router)
 
     # Root endpoint
     @app.get("/")

@@ -130,6 +130,53 @@ class HiddenGemsResponse(BaseModel):
     meta: dict = Field(default_factory=dict, description="Metadata about hidden gems analysis")
 
 
+# ---- Meta Decks Schemas ----
+
+class MetaDeckCardSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    card_name: str
+    quantity: int
+
+
+class MetaDeckInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    tor_id: str
+    name: str
+    author: Optional[str]
+    race: Optional[str]
+    race_slug: Optional[str]
+    format: Optional[str]
+    tournament_name: Optional[str]
+    tournament_position: Optional[str]
+    card_count: int
+    scraped_at: datetime
+    cards: List[MetaDeckCardSchema] = []
+
+
+class MetaDeckListResponse(BaseModel):
+    decks: List[MetaDeckInfo]
+    total: int
+    page: int
+    pages: int
+
+
+class MetaDeckDetailResponse(BaseModel):
+    deck: MetaDeckInfo
+
+
+class ScrapeMetaDecksRequest(BaseModel):
+    pages: int = Field(default=5, ge=1, le=50)
+    start_page: int = Field(default=1, ge=1)
+
+
+class ScrapeMetaDecksResponse(BaseModel):
+    decks_found: int
+    decks_saved: int
+    errors: int
+    message: str
+
+
 # ---- Internal Schemas ----
 
 class CachedAnalysis(BaseModel):
